@@ -112,6 +112,8 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
     //node would need its ref decrented as well 
     //this func then may need to recursively call itself
     userRemoveRef(pMgr, *pUserData_pNext, psmResult);
+    //Check if we had any problems within userRemoveRef func
+    if(psmResult->rc != 0) return ;
 
   }
   
@@ -123,9 +125,9 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
   //pRefedNode = (AllocNode*)((char*)pUserDataTo - pMgr->shPrefixSize);
   //pRefedNode->shRefCount++;
 
+  //Check if we had any problems within userAddRef func
+  if(psmResult->rc != 0) return ;
   psmResult->rc = 0;
-
-
 }
 
 void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType, char sbUserData[], SMResult *psmResult){
@@ -170,11 +172,17 @@ void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType
 
 
 void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
+  AllocNode *pRefedNode = (AllocNode*)((char*)pUserData - pMgr->shPrefixSize);
+  pRefedNode->shRefCount--;
 
+  if(pRefedNode->shRefCount == 0){
+    memFree(pMgr, pRefedNode, psmResult);
+  }
 }
 
 void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
-
+  AllocNode *pRefedNode = (AllocNode*)((char*)pUserDataTo - pMgr->shPrefixSize);
+  pRefedNode->shRefCount++;
 }
 
 void memFree(StorageManager *pMgr, AllocNode *pAlloc, SMResult *psmResult){
