@@ -173,11 +173,13 @@ void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType
 
 void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
   AllocNode *pRefedNode = (AllocNode*)((char*)pUserData - pMgr->shPrefixSize);
+  //decrement ref count by one
   pRefedNode->shRefCount--;
 
-  if(pRefedNode->shRefCount == 0){
-    memFree(pMgr, pRefedNode, psmResult);
-  }
+  //if ref count drops to zero then it must be freed.
+  //But it must be checked for any nodes it may ref
+  //So recursively call this func and decrement that nodes ref count
+  
 }
 
 void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
