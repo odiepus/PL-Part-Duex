@@ -98,7 +98,6 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
   //Assign offset of pNext in UserData to var
   shOffset = (pMgr->metaAttrM[iAttr].shOffset);
   
-  
   /**Check if from node is ref'ing another node**/
 
   //Point to where the pNext field would be in Userdata
@@ -172,14 +171,43 @@ void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType
 
 
 void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
+  //In func pointer should point to front of node where meta starts
   AllocNode *pRefedNode = (AllocNode*)((char*)pUserData - pMgr->shPrefixSize);
+
+  void *pTempUserData = pUserData;
+
+  /**Check Node Type for Ref'ed Node**/
+
+  //Get the node type for the ref'ed node
+  short shToNodeType = pRefedNode->shNodeType;
+
+  //Use the node type to get the attr of the node
+  short iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr;
+
+  //Assign offset of pNext in UserData to var
+  short shOffset = (pMgr->metaAttrM[iAttr].shOffset);
+
+  //Pointer to the pNext of this node
+  void *pUserData_pNext = (void*)(((char*)pTempUserData) + shOffset);
+  
   //decrement ref count by one
   pRefedNode->shRefCount--;
 
   //if ref count drops to zero then it must be freed.
   //But it must be checked for any nodes it may ref
   //So recursively call this func and decrement that nodes ref count
-  
+  if(pRefedNode->shRefCount == 0){
+    //check for any nodes this node has ref's to 
+    if(pUserData_pNext != NULL){
+      //If it does have ref's to other nodes then we decrement its ref count
+      userRemoveRef(pMgr, pUserData_pNext, psmResult);
+    }
+    else{
+      //Node has ref count of zero and it has no ref's to other nodes, free it
+      memFree(pMgr, pRefedNode, psmResult);
+    }
+  }
+  //Ref count of node is not zero so just return
 }
 
 void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
