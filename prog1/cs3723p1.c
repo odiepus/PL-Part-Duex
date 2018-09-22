@@ -87,12 +87,12 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
   short shToNodeType = pToNode->shNodeType;
 
   //Use the node type to get the attr of the node
-  short iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr;
+  short iAttr;
   //szAttrName must be used to know if the attr(szAttrName) is a pointer type 
-  for(iAttr = 0; iAttr < MAX_NODE_ATTR; iAttr++){
+  for(iAttr = 0; iAttr < MAX_NODE_TYPE; iAttr++){
     if(strcmp(pMgr->metaAttrM[iAttr].szAttrName, szAttrName) == 0){
       //Check if the node's meta attr is a pointer type
-      if(pMgr->metaAttrM[iAttr].cDataType && 'P'){
+      if(pMgr->metaAttrM[iAttr].cDataType == 'P'){
         break;
       }
       else{
@@ -128,12 +128,9 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
 
   //After pointing to the new node increment its ref count
   userAddRef(pMgr, *ppUserDataFrom_pNext, psmResult);
-  //pRefedNode = (AllocNode*)((char*)pUserDataTo - pMgr->shPrefixSize);
-  //pRefedNode->shRefCount++;
 
   //Check if we had any problems within userAddRef func
   if(psmResult->rc != 0) return ;
-  psmResult->rc = 0;
 }
 
 void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType, char sbUserData[], SMResult *psmResult){
@@ -180,41 +177,45 @@ void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType
 void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
   //In func pointer should point to front of node where meta starts
   AllocNode *pRefedNode = (AllocNode*)((char*)pUserData - pMgr->shPrefixSize);
-
+  //Temp pointer that points to the userdata of node that is to be derefed
   void *pTempUserData = pUserData;
-
-  /**Check Node Type for Ref'ed Node**/
+  
+  //Pointer to the pNextCust field of this node
+  void **pUserData_pNext;
+  //Variable to hold the offset to the pNext pointer field
+  short shOffsetTo_pNext = 0;
 
   //Get the node type for the ref'ed node
   short shToNodeType = pRefedNode->shNodeType;
 
-  //Use the node type to get the attr of the node
-  short iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr;
-
-  //Assign offset of pNext in UserData to var
-  short shOffset = (pMgr->metaAttrM[iAttr].shOffset);
-
-  //Pointer to the pNext of this node
-  void *pUserData_pNext = (void*)(((char*)pTempUserData) + shOffset);
-  
-  //decrement ref count by one
-  pRefedNode->shRefCount--;
-
-  //if ref count drops to zero then it must be freed.
-  //But it must be checked for any nodes it may ref
-  //So recursively call this func and decrement that nodes ref count
-  if(pRefedNode->shRefCount == 0){
-    //check for any nodes this node has ref's to 
-    if(pUserData_pNext != NULL){
-      //If it does have ref's to other nodes then we decrement its ref count
-      userRemoveRef(pMgr, pUserData_pNext, psmResult);
-    }
-    else{
-      //Node has ref count of zero and it has no ref's to other nodes, free it
-      memFree(pMgr, pRefedNode, psmResult);
+  //Look for the offset for pNextCust or if LineItem then look for its offset
+  for(int iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr; iAttr < MAX_NODE_ATTR; iAttr++){
+    if((strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextCust") ==0) || (strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextItem") ==0)){
+      shOffsetTo_pNext = pMgr->metaAttrM[iAttr].shOffset;
+      break;
     }
   }
+
+  //Pointer to the pNext of this node
+  pUserData_pNext = (void**)(((char*)pTempUserData) + shOffsetTo_pNext);
+  
+  //decrement ref count by one for this node
+  pRefedNode->shRefCount--;
+
+  //If ref count drops to zero then it must be freed.
+  //But it must be checked for any nodes it may ref
+  //So recursively call this func and decrement that nodes ref count
+  if(pRefedNode->shRefCount <= 0){
+    //check for any nodes this node has ref's to 
+    if(*pUserData_pNext != NULL){
+      //If it does have ref's to other nodes then we decrement its ref count
+      userRemoveRef(pMgr, *pUserData_pNext, psmResult);
+    }
+    //Node has ref count of zero and it has no ref's to other nodes, free it
+    memFree(pMgr, pRefedNode, psmResult);
+  }
   //Ref count of node is not zero so just return
+  return;
 }
 
 void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
@@ -224,17 +225,38 @@ void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
 
 void memFree(StorageManager *pMgr, AllocNode *pAlloc, SMResult *psmResult){
   AllocNode *pTempNode = pAlloc;
-  if(pTempNode->cAF && 'A'){
-    //Temp pointer to the head of the free list for specified node type
-    FreeNode *pTempHeadFreeNode = pMgr->pFreeHeadM[pTempNode->shNodeType];
-
+  if(pTempNode->cAF == 'A'){
+    //Get the node type for the node to be freed
+    short shAllocNodeType = pTempNode->shNodeType;
+    
     //The size of the node to be added to the free list
     short shSizeOfNode = pTempNode->shAllocSize;
+
+    //Temp pointer to the head of the free list for specified node type
+    FreeNode *pTempHeadFreeNode = pMgr->pFreeHeadM[shAllocNodeType];
     
     //Temp FreeNode pointer to the node that is to be added to the free list
     FreeNode *pTempNewFreeNode = (FreeNode*)pTempNode; 
+    pTempNewFreeNode->cAF = 'F';
+    pTempNewFreeNode->shAllocSize = shSizeOfNode;
 
-     
+    //Point head of free list to the new node
+    pMgr->pFreeHeadM[shAllocNodeType] = pTempNewFreeNode;
+ 
+    //If old head is not NULL then point new head to it else make pNextFree = NULL
+    if(pTempHeadFreeNode == NULL){
+      pMgr->pFreeHeadM[shAllocNodeType]->pNextFree = NULL;
+      return;
+    }
+    else{
+      //Point the new head of free list to rest of the list
+      pMgr->pFreeHeadM[shAllocNodeType]->pNextFree = pTempHeadFreeNode;
+      return;
+    }
+  }
+  else{
+    psmResult->rc = RC_CANT_FREE; 
+    return;
   }
 
 }
