@@ -187,8 +187,13 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
 
   //Get the node type for the ref'ed node
   short shToNodeType = pRefedNode->shNodeType;
-
+//NOTICE!!!!!!!!!!
+//Here I should get offset for both pNextCust and pFirstItem. Thus if
+//the node ref's drop to zero then I will have to remove refs to both nodes.
+  
   //Look for the offset for pNextCust or if LineItem then look for its offset
+  //FIX this if shBeginMetaAttr 0 then look for nodes in pNextCust and pFirstItem
+  //if shBeginMetaAttr is 1 then pNextItem
   for(int iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr; iAttr < MAX_NODE_ATTR; iAttr++){
     if((strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextCust") ==0) || (strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextItem") ==0)){
       shOffsetTo_pNext = pMgr->metaAttrM[iAttr].shOffset;
