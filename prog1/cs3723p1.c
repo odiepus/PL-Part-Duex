@@ -80,16 +80,16 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
 
   short shFromNodepNext = 0;
   short shOffset;
+  
+  //Use the node type to get the attr of the node
+  short iAttr;
 
   /**Check Node Type for Ref'ed Node**/
-
   //Get the node type for the ref'ed node
   short shToNodeType = pToNode->shNodeType;
 
-  //Use the node type to get the attr of the node
-  short iAttr;
   //szAttrName must be used to know if the attr(szAttrName) is a pointer type 
-  for(iAttr = 0; iAttr < MAX_NODE_TYPE; iAttr++){
+  for(iAttr = 0; iAttr < MAX_NODE_ATTR; iAttr++){
     if(strcmp(pMgr->metaAttrM[iAttr].szAttrName, szAttrName) == 0){
       //Check if the node's meta attr is a pointer type
       if(pMgr->metaAttrM[iAttr].cDataType == 'P'){
