@@ -100,6 +100,10 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
         return;
       }
     }
+    else{
+      psmResult->rc = RC_ASSOC_ATTR_NOT_PTR;
+      return;
+    }
   }
 
   //Assign offset of pNext in UserData to var
@@ -168,11 +172,9 @@ void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType
   //Return a pointer that points to start of user data not the 
   //start of the actual node meta and all. 
   void *pUserDataReturn = (char*)pTempAllocNode + pMgr->shPrefixSize;
+
   return pUserDataReturn;
-
-    
 }
-
 
 void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
   //In func pointer should point to front of node where meta starts
@@ -187,13 +189,9 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
 
   //Get the node type for the ref'ed node
   short shToNodeType = pRefedNode->shNodeType;
-//NOTICE!!!!!!!!!!
-//Here I should get offset for both pNextCust and pFirstItem. Thus if
-//the node ref's drop to zero then I will have to remove refs to both nodes.
   
   //Look for the offset for pNextCust or if LineItem then look for its offset
-  //FIX this if shBeginMetaAttr 0 then look for nodes in pNextCust and pFirstItem
-  //if shBeginMetaAttr is 1 then pNextItem
+  //shBeginMetaAttr gives us the offset
   for(int iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr; iAttr < MAX_NODE_ATTR; iAttr++){
     if((strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextCust") ==0) || (strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextItem") ==0)){
       shOffsetTo_pNext = pMgr->metaAttrM[iAttr].shOffset;
@@ -209,16 +207,16 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
 
   //If ref count drops to zero then it must be freed.
   //But it must be checked for any nodes it may ref
-  //So recursively call this func and decrement that nodes ref count
+  //So recursively call(done in the func itself) this func and decrement that nodes ref count
   if(pRefedNode->shRefCount <= 0){
-    //check for any nodes this node has ref's to 
-    if(*pUserData_pNext != NULL){
+    if(*pUserData_pNext != NULL){   //check for any nodes this node has ref's to 
       //If it does have ref's to other nodes then we decrement its ref count
       userRemoveRef(pMgr, *pUserData_pNext, psmResult);
     }
-    //Node has ref count of zero and it has no ref's to other nodes, free it
+    //Node has ref count of zero and it has no ref's to other nodes, free it!
     memFree(pMgr, pRefedNode, psmResult);
   }
+
   //Ref count of node is not zero so just return
   return;
 }
