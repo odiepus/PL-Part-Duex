@@ -197,6 +197,10 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
       shOffsetTo_pNext = pMgr->metaAttrM[iAttr].shOffset;
       break;
     }
+    else{
+      psmResult->rc = NOT_FOUND;
+      return;
+    }
   }
 
   //Pointer to the pNext of this node
@@ -213,7 +217,7 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
       //If it does have ref's to other nodes then we decrement its ref count
       userRemoveRef(pMgr, *pUserData_pNext, psmResult);
     }
-    //Node has ref count of zero and it has no ref's to other nodes, free it!
+    //NULL found, node has ref count of zero and it has no ref's to other nodes, free it!
     memFree(pMgr, pRefedNode, psmResult);
   }
 
