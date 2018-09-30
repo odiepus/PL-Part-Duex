@@ -3,6 +3,24 @@
 #include <string.h>
 #include <stdlib.h>
 
+/****************************************************
+ cs3723p1.c by Hector Herrera
+Purpose:
+  The code in this file are the student defined functions required
+  to run the program in the Storage Management program in 
+  cs3723p1Driver.c provided by Professor Larry Clark.
+
+  *************************************************/
+/***************FreeNode***********************
+FreeNode *searchFreeListForNodes(StorageManager *pMgr, short shTotalNodeSizeNeeded, short shNodeType, SMResult *psmResult)
+
+Purpose:
+  This function looks inside the free node list in pMgr and searches for a free node
+  based on node type and size. It will only choose a node that is the same size or 
+  greater. 
+Parameters:
+ 
+***************FreeNode***********************/
 FreeNode *searchFreeListForNodes(StorageManager *pMgr, short shTotalNodeSizeNeeded, short shNodeType, SMResult *psmResult){
 
   //Temp ptr used to return if we find a node in the list

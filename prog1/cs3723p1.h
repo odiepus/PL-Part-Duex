@@ -112,7 +112,7 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[]
     , void *pUserDataTo, SMResult *psmResult);
 void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult);
 void memFree(StorageManager *pMgr, AllocNode *pAlloc, SMResult *psmResult);
-
+FreeNode *searchFreeListForNodes(StorageManager *pMgr, short shTotalNodeSizeNeeded, short shNodeType, SMResult *psmResult);
 #if defined(_WIN32) || defined(_WIN64)    
 extern void printNode(StorageManager *pMgr, void *pUserData);
 #else
