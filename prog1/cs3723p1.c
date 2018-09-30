@@ -17,8 +17,17 @@ FreeNode *searchFreeListForNodes(StorageManager *pMgr, short shTotalNodeSizeNeed
 Purpose:
   This function looks inside the free node list in pMgr and searches for a free node
   based on node type and size. It will only choose a node that is the same size or 
-  greater. 
+  greater. If node is found then its address is returned and the free node list is 
+  updated.
 Parameters:
+  I   StorageManager *pMgr Contains node metadata that is used to identify the node.
+  I   short shTotalNodeSizeNeeded   Contains the size of the node that is searched for
+  I   short shNodeType  Contains the type of node that is searched for
+  I   SMResult *psmResult   Flag to notify program and user of discrepancies and failures
+  0   FreeNode *pTemp   Pointer to node that meets criteria for resuse. 
+
+Return Value:
+  0   FreeNode *pTemp   Pointer to node that meets criteria for resuse. 
  
 ***************FreeNode***********************/
 FreeNode *searchFreeListForNodes(StorageManager *pMgr, short shTotalNodeSizeNeeded, short shNodeType, SMResult *psmResult){
@@ -84,6 +93,22 @@ FreeNode *searchFreeListForNodes(StorageManager *pMgr, short shTotalNodeSizeNeed
   return NULL;
 }
 
+/***************userAssoc***********************
+void *userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], void *pUserDataTo, SMResult *psmResult)
+
+Purpose:
+  The function updates the pNextCust/pNextItem to ref another node. Then it calls another function
+  to update the reference count for the refernced node. If the pNextCust/pNextItem field is not 
+  empty when updating, then a function is called to derefernce the old node. 
+Parameters:
+  I   StorageManager *pMgr Contains node metadata that is used to identify the node.
+  I   void *pUserDataFrom   pointer to the node that will do the referencing.
+  I   void *pUserDataTo     pointer to the node that will be referenced.
+  I   char szAttrName       string containing the attribute name used to check if inputted attribute
+                            is a pointer.
+  I   SMResult *psmResult   Flag to notify program and user of discrepancies and failures
+ 
+***************userAssoc***********************/
 void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], void *pUserDataTo, SMResult *psmResult){
   //The passed in pointer is pointing to the user data part of
   //the node. So we must move the pointer back 8 bytes to 
@@ -93,11 +118,10 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
 
   void *pUserFromNode = pUserDataFrom;      //Points to userdata of from node
   void *pUserToNode = pUserDataTo;          //Points ot userdata of to node
-  AllocNode *pRefedNode;
-  void **ppUserDataFrom_pNext;
+  void **ppUserDataFrom_pNext;        //pointer to the pointer that points to next Cust/Item node
 
-  short shFromNodepNext = 0;
-  short shOffset;
+  //will contain offset from sbUserData to the pointer field that points to next Cust/Item node
+  short shOffset;     
   
   //Use the node type to get the attr of the node
   short iAttr;
@@ -155,10 +179,29 @@ void userAssoc(StorageManager *pMgr, void *pUserDataFrom, char szAttrName[], voi
   if(psmResult->rc != 0) return ;
 }
 
+/***************userAllocate***********************
+void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType, char sbUserData[], SMResult *psmResult){
+
+Purpose:
+  This function will allocate a new node either by finding an unused node that is in the free
+  node list or having the driver return one. Once a node is obtained then the values are 
+  initiated with provide parameters.
+Parameters:
+  I   StorageManager *pMgr    Contains node metadata that is used to identify the node.
+  I   short shUserDataSize    Contains the size of the user data portion of node.
+  I   short shNodeType        Contains the type of the node.
+  I   char sbUserData[]       Block that contains the user data 
+  I   SMResult *psmResult   Flag to notify program and user of discrepancies and failures
+
+Return Value:
+  0   void *pUserDataReturn   Pointer to new allocated node. 
+ 
+***************userAllocate***********************/
 void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType, char sbUserData[], SMResult *psmResult){
  
-  FreeNode *pTemp;
-  AllocNode *pTempAllocNode;
+  FreeNode *pTemp;        //pointer that will be used to point to the new free node
+  //pointer to the very front of the new node. Will be used to initiate metadata
+  AllocNode *pTempAllocNode;    
 
   //Calc the size of the whole node
   //Should be size of user binary data plus the size of the prefix(meta)
@@ -194,6 +237,19 @@ void * userAllocate(StorageManager *pMgr, short shUserDataSize, short shNodeType
   return pUserDataReturn;
 }
 
+/***************userRemoveRef***********************
+void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
+
+Purpose:
+  This function will allocate a new node either by finding an unused node that is in the free
+  node list or having the driver return one. Once a node is obtained then the values are 
+  initiated with provide parameters.
+Parameters:
+  I   StorageManager *pMgr    Contains node metadata that is used to identify the node.
+  I   void *pUserData         Pointer to the node that needs its reference value decremented.
+  I   SMResult *psmResult   Flag to notify program and user of discrepancies and failures.
+
+***************userRemoveRef***********************/
 void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
   //In func pointer should point to front of node where meta starts
   AllocNode *pRefedNode = (AllocNode*)((char*)pUserData - pMgr->shPrefixSize);
@@ -209,8 +265,10 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
   short shToNodeType = pRefedNode->shNodeType;
   
   //Look for the offset for pNextCust or if LineItem then look for its offset
-  //shBeginMetaAttr gives us the offset
+  //shBeginMetaAttr gives us the offset based on node type
   for(int iAttr = pMgr->nodeTypeM[shToNodeType].shBeginMetaAttr; iAttr < MAX_NODE_ATTR; iAttr++){
+    //if we find the attribute names pNextCust/pNextItem then assign the offset for that node 
+    //type to shOffsetTo_pNext
     if((strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextCust") ==0) || (strcmp(pMgr->metaAttrM[iAttr].szAttrName, "pNextItem") ==0)){
       shOffsetTo_pNext = pMgr->metaAttrM[iAttr].shOffset;
       break;
@@ -239,15 +297,38 @@ void userRemoveRef(StorageManager *pMgr, void *pUserData, SMResult *psmResult){
     memFree(pMgr, pRefedNode, psmResult);
   }
 
-  //Ref count of node is not zero so just return
+  //Ref count of node is not zero so just return after the decrement.
   return;
 }
 
+/***************userAddRef***********************
+void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
+
+Purpose:
+  This function will increment a nodes reference count by one.
+Parameters:
+  I   StorageManager *pMgr    Contains node metadata that is used to identify the node.
+  I   void *pUserDataTo       Pointer to the node that needs its reference value incremented.
+  I   SMResult *psmResult     Flag to notify program and user of discrepancies and failures.
+
+***************userAddRef***********************/
 void userAddRef(StorageManager *pMgr, void *pUserDataTo, SMResult *psmResult){
   AllocNode *pRefedNode = (AllocNode*)((char*)pUserDataTo - pMgr->shPrefixSize);
   pRefedNode->shRefCount++;
 }
 
+/***************memFree***********************
+void memFree(StorageManager *pMgr, AllocNode *pAlloc, SMResult *psmResult){
+
+Purpose:
+  This function will increment a nodes reference count by one.
+Parameters:
+  I   StorageManager *pMgr    Contains node metadata that is used to identify the node.
+  I   Alloc *pAlloc           Point to the node that will no longer be used and be put in the 
+                              free node list based on type.
+  I   SMResult *psmResult     Flag to notify program and user of discrepancies and failures.
+
+***************memFree***********************/
 void memFree(StorageManager *pMgr, AllocNode *pAlloc, SMResult *psmResult){
   AllocNode *pTempNode = pAlloc;
   if(pTempNode->cAF == 'A'){
